@@ -77,10 +77,12 @@ def get_config():
 def save_config():
     data = request.json
     with get_db() as db:
-        # Don't overwrite password if sent as dots
-        if data.get('password', '').startswith('•'):
+        # Only skip password update if it's the placeholder dots
+        pwd = data.get('password', '')
+        if pwd.startswith('•') or pwd == '••••••••':
             row = db.execute('SELECT password FROM config WHERE id=1').fetchone()
-            data['password'] = row['password'] if row else ''
+            pwd = row['password'] if row else ''
+        data['password'] = pwd
         db.execute('''UPDATE config SET
             usuario=?, password=?, fecha=?, slots=?, game_type=?,
             players=?, court=?, fallbacks=?, auto_enabled=?
@@ -110,6 +112,16 @@ def get_logs():
     with get_db() as db:
         rows = db.execute('SELECT * FROM log_reservas ORDER BY id DESC LIMIT 50').fetchall()
         return jsonify([dict(r) for r in rows])
+
+@app.route('/debug')
+def debug_config():
+    with get_db() as db:
+        row = db.execute('SELECT id, usuario, game_type, fecha, slots, court, auto_enabled FROM config WHERE id=1').fetchone()
+        if row:
+            d = dict(row)
+            d['tiene_password'] = bool(db.execute('SELECT password FROM config WHERE id=1').fetchone()['password'])
+            return jsonify(d)
+    return jsonify({'error': 'no config'})
 
 @app.route('/status')
 def get_status():
