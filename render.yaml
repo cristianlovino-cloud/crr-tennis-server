@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: crr-tennis-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --threads 2 --timeout 60
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    disk:
+      name: bot-data
+      mountPath: /opt/render/project/src
+      sizeGB: 1
