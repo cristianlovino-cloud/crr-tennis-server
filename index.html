@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRR Tenis · Bot Reservas</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0f0a; --card:#111811; --border:#1e2e1e;
+  --green:#4ade80; --gdim:#166534; --gglow:rgba(74,222,128,.15);
+  --yellow:#facc15; --red:#f87171; --text:#e2f0e2; --muted:#4a6a4a;
+}
+@media (prefers-color-scheme:light) {
+  :root {
+    --bg:#f0f7f0; --card:#fff; --border:#c8dfc8;
+    --green:#16a34a; --gdim:#bbf7d0; --gglow:rgba(22,163,74,.12);
+    --yellow:#d97706; --red:#dc2626; --text:#0f2d0f; --muted:#5a7a5a;
+  }
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Instrument Sans',sans-serif;min-height:100vh;padding:0 16px 60px}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 59px,var(--border) 60px),repeating-linear-gradient(90deg,transparent,transparent 59px,var(--border) 60px);opacity:.2;pointer-events:none;z-index:0}
+header{position:relative;z-index:1;padding:32px 0 20px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.badge{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.bi{width:40px;height:40px;border:2px solid var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px}
+.bn{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--muted)}
+h1{font-family:'Bebas Neue',sans-serif;font-size:60px;line-height:.9;color:var(--green)}
+h1 span{color:var(--text);opacity:.2}
+.sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;margin-top:6px}
+
+/* SERVER STATUS BAR */
+.srv-bar{position:relative;z-index:1;display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:2px;margin-bottom:12px;font-family:'DM Mono',monospace;font-size:10px;}
+.srv-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.srv-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.srv-dot.err{background:var(--red)}
+.srv-dot.loading{background:var(--yellow);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.3}}
+.srv-txt{color:var(--muted);flex:1}
+.srv-url{color:var(--muted);font-size:9px;cursor:pointer;text-decoration:underline}
+.srv-url:hover{color:var(--green)}
+
+/* LAST RUN BANNER */
+.last-run{position:relative;z-index:1;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:2px;margin-bottom:12px;display:none}
+.last-run.ok{border-color:var(--green);background:var(--gglow)}
+.last-run.err{border-color:var(--red)}
+.lr-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--muted);margin-bottom:3px}
+.lr-msg{font-family:'DM Mono',monospace;font-size:12px}
+.lr-msg.ok{color:var(--green)}
+.lr-msg.err{color:var(--red)}
+.lr-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px}
+
+.card{position:relative;z-index:1;background:var(--card);border:1px solid var(--border);border-radius:2px;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.sec{padding:18px 20px;border-bottom:1px solid var(--border)}
+.sec:last-child{border-bottom:none}
+.sl{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sl::after{content:'';flex:1;height:1px;background:var(--border)}
+label{display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:4px}
+input,select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:9px 11px;border-radius:2px;outline:none;transition:border-color .2s,box-shadow .2s}
+input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--gglow)}
+select option{background:var(--bg)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qdates{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.qd{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;padding:5px 11px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:2px;cursor:pointer;transition:all .15s}
+.qd:hover,.qd.on{border-color:var(--green);color:var(--green);background:var(--gglow)}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.slot{font-family:'DM Mono',monospace;font-size:12px;padding:8px 4px;text-align:center;border:1px solid var(--border);border-radius:2px;cursor:pointer;color:var(--muted);background:var(--bg);transition:all .15s;user-select:none}
+.slot.dim{opacity:.4}
+.slot:hover{border-color:var(--green);color:var(--green)}
+.slot.on{border-color:var(--green);background:var(--gglow);color:var(--green)}
+.tr{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tb{padding:14px 8px;border:1px solid var(--border);background:var(--bg);border-radius:2px;cursor:pointer;text-align:center;transition:all .2s;color:var(--muted)}
+.tb .ic{font-size:20px;display:block;margin-bottom:3px}
+.tb .nm{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;display:block;color:var(--text)}
+.tb .dc{font-family:'DM Mono',monospace;font-size:10px;display:block;margin-top:2px}
+.tb:hover{border-color:var(--green)}
+.tb.on{border-color:var(--green);background:var(--gglow)}
+.tb.on .nm{color:var(--green)}
+.pr{display:grid;grid-template-columns:24px 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px}
+.pr:last-child{margin-bottom:0}
+.pn{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--muted);text-align:center}
+.grp{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.gl{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.gb{font-family:'DM Mono',monospace;font-size:10px;padding:4px 9px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:2px 0 0 2px;cursor:pointer;transition:all .15s}
+.gb:hover{border-color:var(--green);color:var(--green)}
+.gx{font-family:'DM Mono',monospace;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-left:none;background:transparent;color:var(--muted);border-radius:0 2px 2px 0;cursor:pointer;transition:all .15s}
+.gx:hover{border-color:var(--red);color:var(--red)}
+.sv{margin-top:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;padding:5px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:2px;cursor:pointer;transition:all .15s}
+.sv:hover{border-color:var(--green);color:var(--green)}
+.courts{display:flex;gap:6px;flex-wrap:wrap}
+.court{width:48px;height:62px;border:1px solid var(--border);background:var(--bg);border-radius:2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:all .2s;position:relative}
+.court::before{content:'';position:absolute;inset:4px;border:1px solid currentColor;opacity:.15;border-radius:1px}
+.court::after{content:'';position:absolute;left:50%;top:4px;bottom:4px;width:1px;background:currentColor;opacity:.1}
+.cn{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--muted)}
+.cl{font-family:'DM Mono',monospace;font-size:8px;color:var(--muted)}
+.court:hover{border-color:var(--green)}
+.court:hover .cn,.court:hover .cl{color:var(--green)}
+.court.on{border-color:var(--green);background:var(--gglow)}
+.court.on .cn,.court.on .cl{color:var(--green)}
+.fb{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;align-items:center}
+
+/* AUTO TOGGLE */
+.auto-row{display:flex;align-items:center;gap:12px;padding:12px 0}
+.tg{width:36px;height:20px;background:var(--border);border-radius:10px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.tg.on{background:var(--gdim)}
+.tg::after{content:'';position:absolute;width:14px;height:14px;background:var(--muted);border-radius:50%;top:3px;left:3px;transition:all .2s}
+.tg.on::after{left:19px;background:var(--green)}
+.at{font-family:'DM Mono',monospace;font-size:11px}
+.at .tt{color:var(--text)}
+.at .ts{color:var(--muted);font-size:10px;margin-top:2px}
+
+/* ACTIONS */
+.acts{padding:18px 20px;display:flex;gap:10px;flex-direction:column}
+.bm{width:100%;padding:16px;background:var(--green);color:#0a0f0a;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:3px;border:none;border-radius:2px;cursor:pointer;transition:all .2s}
+.bm:hover{background:#86efac;box-shadow:0 0 30px rgba(74,222,128,.4)}
+.bm:disabled{opacity:.5;cursor:not-allowed}
+.brow{display:flex;gap:10px}
+.bs{flex:1;padding:14px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1px;border-radius:2px;cursor:pointer;transition:all .2s;text-align:center}
+.bs:hover{border-color:var(--yellow);color:var(--yellow)}
+.bs.save{border-color:var(--green);color:var(--green)}
+.bs.save:hover{background:var(--gglow)}
+
+/* NEXT RUN */
+.next-run{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:center;padding:4px 0}
+.next-run span{color:var(--yellow)}
+
+/* LOG */
+.logbox{display:none;margin:0 20px 16px;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:10px;font-family:'DM Mono',monospace;font-size:11px;max-height:200px;overflow-y:auto}
+.logbox.on{display:block}
+.ll{display:flex;gap:10px;padding:2px 0;border-bottom:1px solid var(--border)}
+.ll:last-child{border-bottom:none}
+.lts{color:var(--muted);flex-shrink:0;font-size:10px}
+.lm{color:var(--text)}
+.lm.ok{color:var(--green)}
+.lm.err{color:var(--red)}
+.lm.warn{color:var(--yellow)}
+
+.note{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:6px}
+
+@media(max-width:400px){.g2{grid-template-columns:1fr}.pr{grid-template-columns:20px 1fr}.pr div:last-child{grid-column:2}}
+</style>
+</head>
+<body>
+<header>
+  <div class="badge"><div class="bi">🎾</div><span class="bn">CRR TENIS · SERVIDOR</span></div>
+  <h1>BOT<br><span>RE</span>SERVAS</h1>
+  <p class="sub">// RESERVA AUTOMÁTICA — 21:00 ART</p>
+</header>
+
+<!-- SERVER STATUS -->
+<div class="srv-bar" id="srvBar">
+  <div class="srv-dot loading" id="srvDot"></div>
+  <span class="srv-txt" id="srvTxt">Conectando al servidor...</span>
+  <span class="srv-url" onclick="editServerUrl()" id="srvUrl">configurar URL</span>
+</div>
+
+<!-- LAST RUN -->
+<div class="last-run" id="lastRun">
+  <div class="lr-label">ÚLTIMO RESULTADO</div>
+  <div class="lr-msg" id="lrMsg"></div>
+  <div class="lr-time" id="lrTime"></div>
+</div>
+
+<div class="card">
+
+  <div class="sec">
+    <div class="sl">01 · Credenciales del club</div>
+    <div class="g2">
+      <div><label>Usuario / Nro. Socio</label><input type="text" id="usr" placeholder="344022" autocomplete="username"></div>
+      <div><label>Contraseña</label><input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password"></div>
+    </div>
+    <p class="note">Las credenciales se guardan en el servidor (encriptadas en tránsito)</p>
+  </div>
+
+  <div class="sec">
+    <div class="sl">02 · Fecha</div>
+    <div><label>Día a reservar (hasta +72hs)</label><select id="fecha"></select></div>
+    <div class="qdates" id="qdates"></div>
+    <p class="note">El servidor ejecuta la reserva a las 21:00 ART del día anterior</p>
+  </div>
+
+  <div class="sec">
+    <div class="sl">03 · Horario</div>
+    <div class="slots" id="slots"></div>
+    <p class="note" style="margin-top:6px">* Singles: 1h · Dobles: 1.5h</p>
+  </div>
+
+  <div class="sec">
+    <div class="sl">04 · Tipo de juego</div>
+    <div class="tr">
+      <button class="tb on" id="btnS" onclick="setType('singles')"><span class="ic">🎾</span><span class="nm">Singles</span><span class="dc">1 vs 1 · 1 hora</span></button>
+      <button class="tb" id="btnD" onclick="setType('dobles')"><span class="ic">🤝</span><span class="nm">Dobles</span><span class="dc">2 vs 2 · 1.5 horas</span></button>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sl">05 · Jugadores</div>
+    <div id="players"></div>
+    <div class="grp" id="grp"><span class="gl">Grupos:</span></div>
+    <button class="sv" onclick="saveGroup()">+ GUARDAR GRUPO ACTUAL</button>
+  </div>
+
+  <div class="sec">
+    <div class="sl">06 · Cancha</div>
+    <div class="courts" id="courts"></div>
+    <div class="fb" id="fb"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">Fallback:</span></div>
+  </div>
+
+  <div class="sec">
+    <div class="sl">07 · Auto-reserva</div>
+    <div class="auto-row">
+      <div class="tg" id="tAuto" onclick="toggleAuto()"></div>
+      <div class="at">
+        <div class="tt">Reserva automática a las 21:00</div>
+        <div class="ts">El servidor ejecuta sin que tengas que hacer nada</div>
+      </div>
+    </div>
+    <div class="next-run" id="nextRun"></div>
+  </div>
+
+  <div class="acts">
+    <button class="bm" id="bRes" onclick="reservarAhora()">RESERVAR AHORA</button>
+    <div class="brow">
+      <button class="bs save" onclick="guardarConfig()">💾 GUARDAR CONFIG</button>
+      <button class="bs" onclick="verLogs()">📋 VER LOGS</button>
+    </div>
+  </div>
+
+  <div class="logbox" id="logbox"></div>
+
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────
+let SERVER_URL = localStorage.getItem('crr_server') || '';
+const NC = 8;
+let gType = 'singles', selSlots = new Set(), selCourt = null, fallbacks = [];
+let autoOn = false;
+
+// ── INIT ─────────────────────────────────────────────
+window.addEventListener('load', async function() {
+  if (!SERVER_URL) {
+    const url = prompt('URL de tu servidor en Render (ej: https://crr-tennis-bot.onrender.com):');
+    if (url) { SERVER_URL = url.replace(/\/$/, ''); localStorage.setItem('crr_server', SERVER_URL); }
+  }
+  document.getElementById('srvUrl').textContent = SERVER_URL || 'configurar URL';
+  initFecha();
+  initSlots();
+  renderPlayers();
+  initCourts();
+  await checkServer();
+  await loadConfig();
+  await loadGrupos();
+  await checkStatus();
+});
+
+// ── SERVER CHECK ──────────────────────────────────────
+async function checkServer() {
+  const dot = document.getElementById('srvDot');
+  const txt = document.getElementById('srvTxt');
+  if (!SERVER_URL) {
+    dot.className = 'srv-dot err';
+    txt.textContent = 'URL del servidor no configurada';
+    return false;
+  }
+  try {
+    const r = await fetch(SERVER_URL + '/health', {signal: AbortSignal.timeout(5000)});
+    const d = await r.json();
+    dot.className = 'srv-dot ok';
+    txt.textContent = 'Servidor activo · ' + new Date(d.time).toLocaleTimeString('es-AR');
+    return true;
+  } catch {
+    dot.className = 'srv-dot err';
+    txt.textContent = 'Servidor no disponible — verificá la URL';
+    return false;
+  }
+}
+
+function editServerUrl() {
+  const url = prompt('URL del servidor en Render:', SERVER_URL);
+  if (url) {
+    SERVER_URL = url.replace(/\/$/, '');
+    localStorage.setItem('crr_server', SERVER_URL);
+    document.getElementById('srvUrl').textContent = SERVER_URL;
+    checkServer();
+  }
+}
+
+// ── LOAD CONFIG ───────────────────────────────────────
+async function loadConfig() {
+  if (!SERVER_URL) return;
+  try {
+    const r = await fetch(SERVER_URL + '/config');
+    const cfg = await r.json();
+    if (cfg.usuario) document.getElementById('usr').value = cfg.usuario;
+    if (cfg.password) document.getElementById('pwd').value = cfg.password;
+    if (cfg.fecha)    setFecha(cfg.fecha);
+    if (cfg.slots)    cfg.slots.forEach(s => activateSlot(s));
+    if (cfg.game_type) setType(cfg.game_type);
+    if (cfg.court)    selectCourt(cfg.court);
+    if (cfg.fallbacks) cfg.fallbacks.forEach(f => activateFallback(f));
+    autoOn = !!cfg.auto_enabled;
+    document.getElementById('tAuto').classList.toggle('on', autoOn);
+    // Players loaded separately via grupos
+  } catch(e) { log('Error cargando config: ' + e.message, 'err'); }
+}
+
+async function checkStatus() {
+  if (!SERVER_URL) return;
+  try {
+    const r = await fetch(SERVER_URL + '/status');
+    const s = await r.json();
+    if (s.ultimo_resultado) {
+      const lr = document.getElementById('lastRun');
+      const isOk = s.ultimo_resultado.includes('CONFIRMADA');
+      lr.style.display = 'block';
+      lr.className = 'last-run ' + (isOk ? 'ok' : 'err');
+      document.getElementById('lrMsg').className = 'lr-msg ' + (isOk ? 'ok' : 'err');
+      document.getElementById('lrMsg').textContent = s.ultimo_resultado;
+      if (s.ultima_ejecucion) {
+        document.getElementById('lrTime').textContent =
+          new Date(s.ultima_ejecucion).toLocaleString('es-AR');
+      }
+    }
+    if (s.next_run) {
+      const nr = document.getElementById('nextRun');
+      nr.innerHTML = 'Próxima ejecución: <span>' +
+        new Date(s.next_run).toLocaleString('es-AR') + '</span>';
+    }
+  } catch {}
+}
+
+// ── FECHA ─────────────────────────────────────────────
+function initFecha() {
+  const sel = document.getElementById('fecha');
+  const qd  = document.getElementById('qdates');
+  const today = new Date();
+  const LABELS = ['HOY','MAÑ'];
+  const DAYS = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  for (let i = 0; i <= 3; i++) {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    const v = fmt(d);
+    const lb = i < 2 ? LABELS[i] : DAYS[d.getDay()];
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = lb + ' ' + d.getDate() + '/' + (d.getMonth()+1);
+    if (i === 0) opt.selected = true;
+    sel.appendChild(opt);
+    const btn = document.createElement('button');
+    btn.className = 'qd' + (i === 0 ? ' on' : '');
+    btn.textContent = lb; btn.dataset.v = v;
+    btn.onclick = function() {
+      document.querySelectorAll('.qd').forEach(b => b.classList.remove('on'));
+      this.classList.add('on'); sel.value = this.dataset.v;
+    };
+    qd.appendChild(btn);
+  }
+  sel.onchange = function() {
+    document.querySelectorAll('.qd').forEach(b => b.classList.toggle('on', b.dataset.v === this.value));
+  };
+}
+function setFecha(v) {
+  const sel = document.getElementById('fecha');
+  for (const opt of sel.options) { if (opt.value === v) { opt.selected = true; break; } }
+  document.querySelectorAll('.qd').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+}
+function fmt(d) {
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+// ── SLOTS ─────────────────────────────────────────────
+function initSlots() {
+  const g = document.getElementById('slots');
+  const times = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30',
+    '11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30',
+    '15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30',
+    '19:00','19:30','20:00','20:30','21:00','21:30','22:00'];
+  times.forEach(t => {
+    const d = document.createElement('div');
+    d.className = 'slot' + (parseInt(t) < 19 ? ' dim' : '');
+    d.textContent = t; d.dataset.t = t;
+    d.onclick = function() {
+      this.classList.toggle('on');
+      this.classList.contains('on') ? selSlots.add(t) : selSlots.delete(t);
+    };
+    g.appendChild(d);
+  });
+}
+function activateSlot(t) {
+  const el = document.querySelector(`.slot[data-t="${t}"]`);
+  if (el) { el.classList.add('on'); selSlots.add(t); }
+}
+
+// ── TIPO ──────────────────────────────────────────────
+function setType(t) {
+  gType = t;
+  document.getElementById('btnS').classList.toggle('on', t === 'singles');
+  document.getElementById('btnD').classList.toggle('on', t === 'dobles');
+  renderPlayers();
+}
+
+// ── JUGADORES ─────────────────────────────────────────
+function renderPlayers() {
+  const n = gType === 'singles' ? 2 : 4;
+  let h = '';
+  for (let i = 1; i <= n; i++) {
+    h += `<div class="pr">
+      <div class="pn">${i}</div>
+      <div><label>Apellido Nombre</label><input type="text" id="pn${i}" placeholder="García Juan" autocomplete="off"></div>
+      <div><label>Nro. Socio</label><input type="text" id="ps${i}" placeholder="00000" autocomplete="off"></div>
+    </div>`;
+  }
+  document.getElementById('players').innerHTML = h;
+}
+function getPlayers() {
+  const n = gType === 'singles' ? 2 : 4;
+  const out = [];
+  for (let i = 1; i <= n; i++) {
+    const nb = (document.getElementById('pn'+i)||{}).value||'';
+    const sc = (document.getElementById('ps'+i)||{}).value||'';
+    if (nb || sc) out.push({nombre: nb.trim(), socio: sc.trim()});
+  }
+  return out;
+}
+
+// ── GRUPOS ────────────────────────────────────────────
+async function loadGrupos() {
+  if (!SERVER_URL) return;
+  try {
+    const r = await fetch(SERVER_URL + '/grupos');
+    const list = await r.json();
+    renderGrupos(list);
+  } catch {}
+}
+function renderGrupos(list) {
+  const bar = document.getElementById('grp');
+  bar.innerHTML = '<span class="gl">Grupos:</span>';
+  if (!list.length) {
+    bar.innerHTML += '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--muted);opacity:.5">ninguno</span>';
+    return;
+  }
+  list.forEach(g => {
+    const w = document.createElement('div'); w.style.display = 'flex';
+    const b = document.createElement('button'); b.className = 'gb'; b.textContent = g.label;
+    b.onclick = () => loadGrupo(g);
+    const x = document.createElement('button'); x.className = 'gx'; x.textContent = '×';
+    x.onclick = async () => {
+      await fetch(SERVER_URL + '/grupos/' + g.id, {method: 'DELETE'});
+      await loadGrupos();
+    };
+    w.appendChild(b); w.appendChild(x); bar.appendChild(w);
+  });
+}
+async function saveGroup() {
+  const players = getPlayers();
+  if (!players.length) { log('⚠ Cargá jugadores primero', 'warn'); return; }
+  const lb = prompt('Nombre del grupo (ej: Zubi + Nachi):');
+  if (!lb) return;
+  await fetch(SERVER_URL + '/grupos', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({label: lb, tipo: gType, jugadores: players})
+  });
+  await loadGrupos();
+  log('✓ Grupo "' + lb + '" guardado', 'ok');
+}
+function loadGrupo(g) {
+  setType(g.tipo || 'singles');
+  setTimeout(() => {
+    g.jugadores.forEach((p, i) => {
+      const ni = document.getElementById('pn'+(i+1));
+      const si = document.getElementById('ps'+(i+1));
+      if (ni) ni.value = p.nombre;
+      if (si) si.value = p.socio;
+    });
+    log('✓ Grupo "' + g.label + '" cargado', 'ok');
+  }, 30);
+}
+
+// ── CANCHAS ───────────────────────────────────────────
+function initCourts() {
+  const g = document.getElementById('courts');
+  const fb = document.getElementById('fb');
+  for (let i = 1; i <= NC; i++) {
+    const c = document.createElement('div'); c.className = 'court';
+    c.innerHTML = `<span class="cn">${i}</span><span class="cl">CANCHA</span>`;
+    c.onclick = function() {
+      document.querySelectorAll('.court').forEach(x => x.classList.remove('on'));
+      this.classList.add('on'); selCourt = i;
+    };
+    g.appendChild(c);
+    const b = document.createElement('button'); b.className = 'qd'; b.textContent = 'C'+i;
+    b.dataset.court = i;
+    b.onclick = function() {
+      const idx = fallbacks.indexOf(i);
+      if (idx >= 0) { fallbacks.splice(idx, 1); this.classList.remove('on'); }
+      else { fallbacks.push(i); this.classList.add('on'); }
+    };
+    fb.appendChild(b);
+  }
+}
+function selectCourt(n) {
+  selCourt = n;
+  document.querySelectorAll('.court').forEach((el, i) => el.classList.toggle('on', i+1 === n));
+}
+function activateFallback(n) {
+  fallbacks.push(n);
+  const btn = document.querySelector(`.qd[data-court="${n}"]`);
+  if (btn) btn.classList.add('on');
+}
+
+// ── AUTO ──────────────────────────────────────────────
+function toggleAuto() {
+  autoOn = !autoOn;
+  document.getElementById('tAuto').classList.toggle('on', autoOn);
+}
+
+// ── GUARDAR CONFIG ────────────────────────────────────
+async function guardarConfig() {
+  if (!SERVER_URL) { log('⚠ Configurá la URL del servidor primero', 'warn'); return; }
+  const cfg = {
+    usuario:     document.getElementById('usr').value.trim(),
+    password:    document.getElementById('pwd').value,
+    fecha:       document.getElementById('fecha').value,
+    slots:       [...selSlots],
+    game_type:   gType,
+    players:     getPlayers(),
+    court:       selCourt || 1,
+    fallbacks:   fallbacks,
+    auto_enabled: autoOn,
+  };
+  try {
+    const r = await fetch(SERVER_URL + '/config', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(cfg)
+    });
+    const d = await r.json();
+    if (d.ok) log('✓ Configuración guardada en el servidor', 'ok');
+    else log('✗ Error guardando config', 'err');
+  } catch(e) { log('✗ ' + e.message, 'err'); }
+}
+
+// ── RESERVAR AHORA ────────────────────────────────────
+async function reservarAhora() {
+  if (!SERVER_URL) { log('⚠ Configurá la URL del servidor', 'warn'); return; }
+  await guardarConfig();
+  const btn = document.getElementById('bRes');
+  btn.disabled = true; btn.textContent = 'EJECUTANDO...';
+  log('Enviando orden de reserva al servidor...', 'warn');
+  try {
+    const r = await fetch(SERVER_URL + '/reservar', {method: 'POST'});
+    const d = await r.json();
+    if (d.ok) log('✓ ' + d.msg, 'ok');
+    else log('✗ ' + d.msg, 'err');
+    await checkStatus();
+  } catch(e) { log('✗ Error: ' + e.message, 'err'); }
+  btn.disabled = false; btn.textContent = 'RESERVAR AHORA';
+}
+
+// ── LOGS ──────────────────────────────────────────────
+async function verLogs() {
+  if (!SERVER_URL) return;
+  try {
+    const r = await fetch(SERVER_URL + '/logs');
+    const rows = await r.json();
+    const box = document.getElementById('logbox');
+    box.innerHTML = '';
+    box.classList.add('on');
+    rows.forEach(row => {
+      const cls = row.tipo === 'ok' ? 'ok' : row.tipo === 'error' ? 'err' : row.tipo === 'warn' ? 'warn' : '';
+      const ts = new Date(row.timestamp).toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const l = document.createElement('div'); l.className = 'll';
+      l.innerHTML = `<span class="lts">${ts}</span><span class="lm ${cls}">${row.mensaje}</span>`;
+      box.appendChild(l);
+    });
+    box.scrollTop = box.scrollHeight;
+  } catch(e) { log('Error cargando logs: ' + e.message, 'err'); }
+}
+
+// ── LOG LOCAL ─────────────────────────────────────────
+function log(msg, cls = '') {
+  const box = document.getElementById('logbox');
+  box.classList.add('on');
+  const ts = new Date().toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const l = document.createElement('div'); l.className = 'll';
+  l.innerHTML = `<span class="lts">${ts}</span><span class="lm ${cls}">${msg}</span>`;
+  box.appendChild(l);
+  box.scrollTop = box.scrollHeight;
+}
+</script>
+</body>
+</html>
