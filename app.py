@@ -216,11 +216,18 @@ def ejecutar_reserva():
     # LOGIN
     session = requests.Session()
     session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'es-AR,es-419;q=0.9,es;q=0.8',
         'Content-Type': 'application/json;charset=UTF-8',
         'Origin': BASE,
         'Referer': f'{BASE}//login/login.php',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Dest': 'empty',
+        'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
+        'sec-ch-ua-mobile': '?1',
+        'sec-ch-ua-platform': '"Android"',
     })
 
     try:
