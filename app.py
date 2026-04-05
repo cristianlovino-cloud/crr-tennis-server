@@ -9,7 +9,7 @@ CORS(app, origins="*")
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-DB = 'bot.db'
+DB = os.path.join(os.environ.get('RENDER_DISK_PATH', '.'), 'bot.db')
 BASE = 'https://crrtenis.haceclic.club'
 
 # ── DB ────────────────────────────────────────────────
