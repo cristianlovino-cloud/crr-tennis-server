@@ -293,8 +293,9 @@ async function loadConfig() {
   try {
     const r = await fetch(SERVER_URL + '/config');
     const cfg = await r.json();
-    if (cfg.usuario) document.getElementById('usr').value = cfg.usuario;
-    if (cfg.password) document.getElementById('pwd').value = cfg.password;
+    // Only fill fields if server has actual values stored
+    if (cfg.usuario && cfg.usuario.trim()) document.getElementById('usr').value = cfg.usuario;
+    // Never fill password from server (shows as dots already)
     if (cfg.fecha)    setFecha(cfg.fecha);
     if (cfg.slots)    cfg.slots.forEach(s => activateSlot(s));
     if (cfg.game_type) setType(cfg.game_type);
