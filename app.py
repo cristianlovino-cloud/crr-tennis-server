@@ -36,6 +36,11 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT, mensaje TEXT, tipo TEXT
         )''')
+        # Add phpsessid column if not exists
+        try:
+            db.execute('ALTER TABLE config ADD COLUMN phpsessid TEXT')
+            db.commit()
+        except: pass
         # Insert default config if none
         cur = db.execute('SELECT COUNT(*) FROM config')
         if cur.fetchone()[0] == 0:
@@ -59,16 +64,11 @@ def log_reserva(msg, tipo='info'):
 @app.route('/session', methods=['POST'])
 def save_session():
     """Recibe la cookie PHPSESSID del browser para usarla en reservas"""
-    data = request.json
+    data = request.get_json(force=True, silent=True) or {}
     phpsessid = data.get('PHPSESSID', '').strip()
     if not phpsessid:
         return jsonify({'ok': False, 'msg': 'Cookie vacía'})
     with get_db() as db:
-        db.execute('UPDATE config SET usuario=CASE WHEN ? != "" THEN usuario ELSE usuario END WHERE id=1', ('x',))
-        # Store session cookie separately
-        try:
-            db.execute('ALTER TABLE config ADD COLUMN phpsessid TEXT')
-        except: pass
         db.execute('UPDATE config SET phpsessid=? WHERE id=1', (phpsessid,))
         db.commit()
     log_reserva(f'Cookie de sesión actualizada: {phpsessid[:8]}...', 'info')
@@ -93,7 +93,7 @@ def get_config():
 
 @app.route('/credenciales', methods=['POST'])
 def save_credenciales():
-    data = request.json
+    data = request.get_json(force=True, silent=True) or {}
     usuario  = data.get('usuario', '').strip()
     password = data.get('password', '')
     with get_db() as db:
@@ -107,7 +107,7 @@ def save_credenciales():
 
 @app.route('/config', methods=['POST'])
 def save_config():
-    data = request.json
+    data = request.get_json(force=True, silent=True) or {}
     with get_db() as db:
         # Only skip password update if it's the placeholder dots
         pwd = data.get('password', '')
@@ -136,8 +136,12 @@ def save_config():
 @app.route('/reservar', methods=['POST'])
 def reservar_manual():
     """Ejecutar reserva manualmente"""
-    resultado = ejecutar_reserva()
-    return jsonify(resultado)
+    try:
+        resultado = ejecutar_reserva()
+        return jsonify(resultado)
+    except Exception as e:
+        log_reserva(f'Error crítico en reserva: {e}', 'error')
+        return jsonify({'ok': False, 'msg': str(e)})
 
 @app.route('/logs')
 def get_logs():
