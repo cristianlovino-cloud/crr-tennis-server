@@ -348,6 +348,18 @@ def job_reserva():
 scheduler.add_job(job_reserva, 'cron', hour=21, minute=0,
                   id='reserva_diaria', replace_existing=True)
 
+def job_ping():
+    """Keep-alive: evita que Render duerma el servidor en plan gratuito"""
+    try:
+        import os
+        url = os.environ.get('RENDER_URL', '')
+        if url:
+            requests.get(url + '/health', timeout=5)
+            log.info('Keep-alive ping OK')
+    except: pass
+
+scheduler.add_job(job_ping, 'interval', minutes=10, id='keep_alive', replace_existing=True)
+
 # ── MAIN ──────────────────────────────────────────────
 if __name__ == '__main__':
     init_db()
