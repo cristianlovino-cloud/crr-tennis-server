@@ -170,6 +170,8 @@ select option{background:var(--bg)}
       <div><label>Usuario / Nro. Socio</label><input type="text" id="usr" placeholder="344022" autocomplete="username"></div>
       <div><label>Contraseña</label><input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password"></div>
     </div>
+    <button class="sv" onclick="sincronizarSesion()" style="margin-top:6px;width:100%;padding:8px;background:transparent;border:1px solid var(--green);color:var(--green);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;border-radius:2px;cursor:pointer;">⚡ SINCRONIZAR SESIÓN DEL CLUB</button>
+    <p class="note" style="margin-bottom:6px">Abrí el club en otra pestaña → loguéate → volvé acá y tocá este botón</p>
     <button class="sv" onclick="guardarCredenciales()" style="margin-top:10px;width:100%;padding:10px;background:var(--green);color:#0a0f0a;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;border:none;border-radius:2px;cursor:pointer;">GUARDAR CREDENCIALES</button>
   </div>
 
@@ -512,6 +514,33 @@ function toggleAuto() {
 }
 
 // ── GUARDAR CONFIG ────────────────────────────────────
+async function sincronizarSesion() {
+  // Try to read PHPSESSID cookie from current browser
+  const cookies = document.cookie.split(';');
+  let phpsessid = null;
+  for (const c of cookies) {
+    const [k, v] = c.trim().split('=');
+    if (k === 'PHPSESSID') { phpsessid = v; break; }
+  }
+
+  if (!phpsessid) {
+    log('⚠ No se encontró sesión activa del club en este browser', 'warn');
+    log('→ Abrí crrtenis.haceclic.club en otra pestaña, loguéate, volvé acá y reintentá', 'warn');
+    return;
+  }
+
+  try {
+    const r = await fetch(SERVER_URL + '/session', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({PHPSESSID: phpsessid})
+    });
+    const d = await r.json();
+    if (d.ok) log('✓ Sesión sincronizada con el servidor (' + phpsessid.slice(0,8) + '...)', 'ok');
+    else log('✗ ' + d.msg, 'err');
+  } catch(e) { log('✗ ' + e.message, 'err'); }
+}
+
 async function guardarCredenciales() {
   if (!SERVER_URL) { log('⚠ Configurá la URL del servidor primero', 'warn'); return; }
   const usuario  = document.getElementById('usr').value.trim();

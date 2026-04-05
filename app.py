@@ -56,6 +56,24 @@ def log_reserva(msg, tipo='info'):
 
 # ── API ROUTES ────────────────────────────────────────
 
+@app.route('/session', methods=['POST'])
+def save_session():
+    """Recibe la cookie PHPSESSID del browser para usarla en reservas"""
+    data = request.json
+    phpsessid = data.get('PHPSESSID', '').strip()
+    if not phpsessid:
+        return jsonify({'ok': False, 'msg': 'Cookie vacía'})
+    with get_db() as db:
+        db.execute('UPDATE config SET usuario=CASE WHEN ? != "" THEN usuario ELSE usuario END WHERE id=1', ('x',))
+        # Store session cookie separately
+        try:
+            db.execute('ALTER TABLE config ADD COLUMN phpsessid TEXT')
+        except: pass
+        db.execute('UPDATE config SET phpsessid=? WHERE id=1', (phpsessid,))
+        db.commit()
+    log_reserva(f'Cookie de sesión actualizada: {phpsessid[:8]}...', 'info')
+    return jsonify({'ok': True})
+
 @app.route('/health')
 def health():
     return jsonify({'ok': True, 'time': datetime.now().isoformat()})
@@ -214,6 +232,14 @@ def ejecutar_reserva():
         return {'ok': False, 'msg': 'Sin horarios'}
 
     # LOGIN
+    # First check if we have a valid session cookie
+    with get_db() as db:
+        row = db.execute('SELECT phpsessid FROM config WHERE id=1').fetchone()
+        phpsessid = None
+        try:
+            phpsessid = row['phpsessid'] if row else None
+        except: pass
+
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36',
@@ -230,9 +256,21 @@ def ejecutar_reserva():
         'sec-ch-ua-platform': '"Android"',
     })
 
+    # Inject existing session cookie if available
+    if phpsessid:
+        session.cookies.set('PHPSESSID', phpsessid, domain='crrtenis.haceclic.club')
+        log_reserva(f'Usando cookie de sesión existente: {phpsessid[:8]}...', 'info')
+
     try:
+        # Step 1: GET login page first to obtain initial PHPSESSID cookie
+        log_reserva('Obteniendo cookie inicial...', 'info')
+        session.get(f'{BASE}//login/login.php', timeout=10)
+
+        # Step 2: POST credentials
+        log_reserva('Enviando credenciales...', 'info')
         r = session.post(f'{BASE}//login/loguearse.php',
-                        json={'usuario': usuario, 'password': password}, timeout=10)
+                        json={'usuario': usuario, 'password': password},
+                        timeout=10)
         data = r.json()
         if not data.get('Ejecucion'):
             msg = 'Login fallido: ' + data.get('Mensaje', 'credenciales incorrectas')
