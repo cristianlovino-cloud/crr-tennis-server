@@ -235,8 +235,7 @@ def ejecutar_reserva():
         log_reserva('Sin horarios configurados', 'error')
         return {'ok': False, 'msg': 'Sin horarios'}
 
-    # LOGIN
-    # First check if we have a valid session cookie
+    # SESIÓN: usar cookie sincronizada desde el browser
     with get_db() as db:
         row = db.execute('SELECT phpsessid FROM config WHERE id=1').fetchone()
         phpsessid = None
@@ -249,40 +248,30 @@ def ejecutar_reserva():
         'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Mobile Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'es-AR,es-419;q=0.9,es;q=0.8',
-        'Content-Type': 'application/json;charset=UTF-8',
         'Origin': BASE,
-        'Referer': f'{BASE}//login/login.php',
+        'Referer': f'{BASE}//ingresodereserva/grilla.php?LastQuery=false',
         'Sec-Fetch-Site': 'same-origin',
         'Sec-Fetch-Mode': 'cors',
         'Sec-Fetch-Dest': 'empty',
-        'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
-        'sec-ch-ua-mobile': '?1',
-        'sec-ch-ua-platform': '"Android"',
     })
 
-    # Inject existing session cookie if available
-    if phpsessid:
-        session.cookies.set('PHPSESSID', phpsessid, domain='crrtenis.haceclic.club')
-        log_reserva(f'Usando cookie de sesión existente: {phpsessid[:8]}...', 'info')
+    if not phpsessid:
+        log_reserva('⚠ Sin sesión activa — sincronizá la sesión desde el bot', 'error')
+        return {'ok': False, 'msg': 'Sin sesión activa. Abrí el bot → ⚡ SINCRONIZAR SESIÓN DEL CLUB'}
 
+    session.cookies.set('PHPSESSID', phpsessid, domain='crrtenis.haceclic.club')
+    log_reserva(f'Usando sesión: {phpsessid[:8]}...', 'info')
+
+    # Verificar que la sesión siga activa
     try:
-        # Step 1: GET login page first to obtain initial PHPSESSID cookie
-        log_reserva('Obteniendo cookie inicial...', 'info')
-        session.get(f'{BASE}//login/login.php', timeout=10)
-
-        # Step 2: POST credentials
-        log_reserva('Enviando credenciales...', 'info')
-        r = session.post(f'{BASE}//login/loguearse.php',
-                        json={'usuario': usuario, 'password': password},
-                        timeout=10)
+        r = session.get(f'{BASE}//escritorio/obtenerMenu.php?MenuNivel=10', timeout=10)
         data = r.json()
         if not data.get('Ejecucion'):
-            msg = 'Login fallido: ' + data.get('Mensaje', 'credenciales incorrectas')
-            log_reserva(msg, 'error')
-            return {'ok': False, 'msg': msg}
-        log_reserva('✓ Login OK', 'ok')
+            log_reserva('Sesión expirada — necesitás sincronizar de nuevo', 'error')
+            return {'ok': False, 'msg': 'Sesión expirada. Abrí el bot → ⚡ SINCRONIZAR SESIÓN DEL CLUB'}
+        log_reserva('✓ Sesión activa', 'ok')
     except Exception as e:
-        log_reserva(f'Error de conexión al login: {e}', 'error')
+        log_reserva(f'Error verificando sesión: {e}', 'error')
         return {'ok': False, 'msg': str(e)}
 
     # INTENTAR CADA SLOT + CANCHA
