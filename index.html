@@ -170,7 +170,7 @@ select option{background:var(--bg)}
       <div><label>Usuario / Nro. Socio</label><input type="text" id="usr" placeholder="344022" autocomplete="username"></div>
       <div><label>Contraseña</label><input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password"></div>
     </div>
-    <p class="note">Las credenciales se guardan en el servidor (encriptadas en tránsito)</p>
+    <button class="sv" onclick="guardarCredenciales()" style="margin-top:10px;width:100%;padding:10px;background:var(--green);color:#0a0f0a;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;border:none;border-radius:2px;cursor:pointer;">GUARDAR CREDENCIALES</button>
   </div>
 
   <div class="sec">
@@ -203,8 +203,8 @@ select option{background:var(--bg)}
 
   <div class="sec">
     <div class="sl">06 · Cancha</div>
+    <p class="note" style="margin-bottom:8px">Seleccioná una o más — el bot las intenta en orden</p>
     <div class="courts" id="courts"></div>
-    <div class="fb" id="fb"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)">Fallback:</span></div>
   </div>
 
   <div class="sec">
@@ -234,8 +234,8 @@ select option{background:var(--bg)}
 <script>
 // ── CONFIG ────────────────────────────────────────────
 let SERVER_URL = localStorage.getItem('crr_server') || '';
-const NC = 8;
-let gType = 'singles', selSlots = new Set(), selCourt = null, fallbacks = [];
+const NC = 7;
+let gType = 'singles', selSlots = new Set(), selCourt = null, selCourts = [], fallbacks = [];
 let autoOn = false;
 
 // ── INIT ─────────────────────────────────────────────
@@ -481,34 +481,29 @@ function loadGrupo(g) {
 // ── CANCHAS ───────────────────────────────────────────
 function initCourts() {
   const g = document.getElementById('courts');
-  const fb = document.getElementById('fb');
-  for (let i = 1; i <= NC; i++) {
+  // Only 7 courts (court 8 doesn't exist)
+  for (let i = 1; i <= 7; i++) {
     const c = document.createElement('div'); c.className = 'court';
     c.innerHTML = `<span class="cn">${i}</span><span class="cl">CANCHA</span>`;
+    c.dataset.court = i;
     c.onclick = function() {
-      document.querySelectorAll('.court').forEach(x => x.classList.remove('on'));
-      this.classList.add('on'); selCourt = i;
+      const n = parseInt(this.dataset.court);
+      const idx = selCourts.indexOf(n);
+      if (idx >= 0) { selCourts.splice(idx, 1); this.classList.remove('on'); }
+      else { selCourts.push(n); this.classList.add('on'); }
+      selCourt = selCourts[0] || null;
     };
     g.appendChild(c);
-    const b = document.createElement('button'); b.className = 'qd'; b.textContent = 'C'+i;
-    b.dataset.court = i;
-    b.onclick = function() {
-      const idx = fallbacks.indexOf(i);
-      if (idx >= 0) { fallbacks.splice(idx, 1); this.classList.remove('on'); }
-      else { fallbacks.push(i); this.classList.add('on'); }
-    };
-    fb.appendChild(b);
   }
 }
 function selectCourt(n) {
-  selCourt = n;
-  document.querySelectorAll('.court').forEach((el, i) => el.classList.toggle('on', i+1 === n));
+  if (!selCourts.includes(n)) selCourts.push(n);
+  selCourt = selCourts[0] || null;
+  document.querySelectorAll('.court').forEach(el => {
+    el.classList.toggle('on', selCourts.includes(parseInt(el.dataset.court)));
+  });
 }
-function activateFallback(n) {
-  fallbacks.push(n);
-  const btn = document.querySelector(`.qd[data-court="${n}"]`);
-  if (btn) btn.classList.add('on');
-}
+function activateFallback(n) { /* now handled by multi-select courts */ }
 
 // ── AUTO ──────────────────────────────────────────────
 function toggleAuto() {
@@ -517,6 +512,24 @@ function toggleAuto() {
 }
 
 // ── GUARDAR CONFIG ────────────────────────────────────
+async function guardarCredenciales() {
+  if (!SERVER_URL) { log('⚠ Configurá la URL del servidor primero', 'warn'); return; }
+  const usuario  = document.getElementById('usr').value.trim();
+  const password = document.getElementById('pwd').value;
+  if (!usuario) { log('⚠ Ingresá el usuario', 'warn'); return; }
+  if (!password) { log('⚠ Ingresá la contraseña', 'warn'); return; }
+  try {
+    const r = await fetch(SERVER_URL + '/credenciales', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({usuario, password})
+    });
+    const d = await r.json();
+    if (d.ok) log('✓ Credenciales guardadas en el servidor', 'ok');
+    else log('✗ Error guardando credenciales', 'err');
+  } catch(e) { log('✗ ' + e.message, 'err'); }
+}
+
 async function guardarConfig() {
   if (!SERVER_URL) { log('⚠ Configurá la URL del servidor primero', 'warn'); return; }
   const cfg = {
@@ -526,8 +539,8 @@ async function guardarConfig() {
     slots:       [...selSlots],
     game_type:   gType,
     players:     getPlayers(),
-    court:       selCourt || 1,
-    fallbacks:   fallbacks,
+    court:       selCourts[0] || 1,
+    fallbacks:   selCourts.slice(1),
     auto_enabled: autoOn,
   };
   try {

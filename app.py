@@ -9,7 +9,7 @@ CORS(app, origins="*")
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-DB = os.path.join(os.environ.get('RENDER_DISK_PATH', '.'), 'bot.db')
+DB = os.path.join(os.environ.get('DATA_DIR', '/tmp'), 'bot.db')
 BASE = 'https://crrtenis.haceclic.club'
 
 # ── DB ────────────────────────────────────────────────
@@ -72,6 +72,20 @@ def get_config():
             cfg['fallbacks'] = json.loads(cfg['fallbacks'] or '[]')
             return jsonify(cfg)
     return jsonify({'error': 'No config'}), 404
+
+@app.route('/credenciales', methods=['POST'])
+def save_credenciales():
+    data = request.json
+    usuario  = data.get('usuario', '').strip()
+    password = data.get('password', '')
+    with get_db() as db:
+        if usuario:
+            db.execute('UPDATE config SET usuario=? WHERE id=1', (usuario,))
+        if password and not password.startswith('•'):
+            db.execute('UPDATE config SET password=? WHERE id=1', (password,))
+        db.commit()
+    log_reserva(f'Credenciales actualizadas: usuario={usuario}', 'info')
+    return jsonify({'ok': True})
 
 @app.route('/config', methods=['POST'])
 def save_config():
